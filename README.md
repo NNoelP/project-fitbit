@@ -1,0 +1,1 @@
+This repo contains the statistical analysis of fitbit data using python.
