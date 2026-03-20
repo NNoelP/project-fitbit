@@ -50,7 +50,7 @@ def plot_linear_regression(X, y, title="Title"):
     model = sm.OLS(y, X)
     results = model.fit()
     beta = results.params.values
-    y_pred = X.dot(beta)
+    y_pred = X.dot(beta) if X.ndim >= 2 else beta * X
     
     sns.lineplot(y, label='Data')
     sns.lineplot(y_pred, label='Regression', color="darkorange")
