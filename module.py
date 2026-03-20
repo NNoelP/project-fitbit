@@ -2,6 +2,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
+from statsmodels.tsa.seasonal import STL, MSTL
 import numpy as np
 from sqlite3 import connect
 
@@ -44,3 +45,23 @@ def table_info(table):
     sample = pd.read_sql(f"SELECT * FROM {table} LIMIT 5", conn)
     sample.info()
     return sample
+
+def plot_linear_regression(X, y, title="Title"):
+    model = sm.OLS(y, X)
+    results = model.fit()
+    beta = results.params.values
+    y_pred = X.dot(beta)
+    
+    sns.lineplot(y, label='Data')
+    sns.lineplot(y_pred, label='Regression', color="darkorange")
+    plt.title(title)
+    plt.xticks(rotation=45)
+    plt.legend()
+    plt.show()
+
+    print(results.summary())
+    
+    errors = y - y_pred
+    sns.histplot(errors)
+    plt.title("Regression Errors")
+    plt.show()
