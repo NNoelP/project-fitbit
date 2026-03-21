@@ -173,3 +173,29 @@ def sleep_duration(connect):
     plt.close()
 
     return df
+
+
+# COMPARING SLEEP AND ACTIVE MINUTES
+
+
+def sleep_active_minutes(conn):
+    merged_query = """
+        SELECT a.Id, SUM(s.value) as sleep, 
+        SUM(a.VeryActiveMinutes + a.FairlyActiveMinutes + a.LightlyActiveMinutes) as activity
+    FROM minute_sleep s
+    JOIN daily_activity a ON s.Id = a.Id
+    GROUP BY s.Id
+    """
+
+    df = pd.read_sql(merged_query, conn).dropna()
+
+    if not df.empty:
+        # we can also print the models but it is taking too much space and also not very visual for the dashboard therfore i removed it
+        # model = smf.ols("activity ~ sleep", data=df).fit()
+        # st.text(model.summary())
+
+        sns.regplot(x=df["sleep"], y=df["activity"])
+        plt.ylabel("Total Active Time")
+        plt.xlabel("Total Sleeping Time")
+        plt.title("Comparing Sleep Duration and Active Minutes")
+        st.pyplot(plt.gcf())
