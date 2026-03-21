@@ -94,3 +94,30 @@ def workout_frequency(df):
     plt.show()
     st.pyplot(plt.gcf())
     plt.close()
+
+
+# LINEAR REGRESSION MODEL
+
+
+def linear_regression(df, id):
+    user_data = df[df["Id"] == str(id)]
+    model = smf.ols("Calories ~ TotalSteps", data=user_data).fit()
+    # st.write(model.summary())
+
+
+def plot_linear_regression(df, id):
+    plt.figure(figsize=(1, 6))
+    sns.regplot(
+        data=daily_activity[daily_activity["Id"] == str(id)],
+        x="TotalSteps",
+        y="Calories",
+        line_kws={"color": "grey"},
+    )
+    plt.title(f"Linear Regression: Calories vs. Steps (User {id})")
+    plt.xlabel("Total Steps")
+    plt.ylabel("Calories")
+    plt.show()
+    st.pyplot(plt.gcf())
+    plt.close()
+
+    linear_regression(df, id)
