@@ -39,3 +39,29 @@ def distance_per_user(df):
     plt.show()
     st.pyplot(plt.gcf())
     plt.close()
+
+
+# CALORIES PER DAY FOR USERS
+
+
+def calories_per_day_user(df, id, start, end):
+    user = df[df["Id"] == str(id)].copy()
+
+    user["ActivityDate"] = pd.to_datetime(user["ActivityDate"])
+    # making sure that the data exists
+    if start and end:
+        user = user[user["ActivityDate"] >= pd.to_datetime(start)]
+        user = user[user["ActivityDate"] <= pd.to_datetime(end)]
+
+    user = user.sort_values("ActivityDate")
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(user["ActivityDate"], user["Calories"])
+    plt.title(f"Calories per day {id}")
+    plt.xlabel("Date")
+    plt.ylabel(" Burnt Calories")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+    st.pyplot(plt.gcf())
+    plt.close()
