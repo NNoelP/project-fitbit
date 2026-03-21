@@ -199,3 +199,23 @@ def sleep_active_minutes(conn):
         plt.xlabel("Total Sleeping Time")
         plt.title("Comparing Sleep Duration and Active Minutes")
         st.pyplot(plt.gcf())
+
+
+############## PART 4
+
+# MISSING VALUES
+
+
+def fill_weight(df):
+    # assigning empty strings with nan so that it is easier to detect
+    df.replace(["", " "], pd.NA, inplace=True)
+
+    # this is used if theres any value that was logged before
+    df["WeightKg"] = df.groupby("Id")["WeightKg"].transform(
+        lambda x: x.fillna(x.mean())
+    )
+
+    # and take the median
+    df["WeightKg"] = df["WeightKg"].fillna(df["WeightKg"].median())
+
+    return df
