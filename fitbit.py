@@ -65,3 +65,32 @@ def calories_per_day_user(df, id, start, end):
     plt.show()
     st.pyplot(plt.gcf())
     plt.close()
+
+
+# WORKOUT FREQUENCY FOR EACH DAY OF THE WEEK
+
+
+def workout_frequency(df):
+    df["ActivityDate"] = pd.to_datetime(df["ActivityDate"])
+    daily_activity = df.groupby("ActivityDate")["Id"].nunique().reset_index()
+    days = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    daily_activity["DayOfWeek"] = daily_activity["ActivityDate"].dt.day_name()
+
+    plt.figure(figsize=(12, 6))
+    sns.countplot(daily_activity, x="DayOfWeek", order=days)
+    plt.xlabel("Day of Week")
+    plt.ylabel("Activity")
+    plt.title("Workout Frequency by Day of Week Users")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+    st.pyplot(plt.gcf())
+    plt.close()
