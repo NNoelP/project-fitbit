@@ -97,7 +97,6 @@ if not data.empty:
 
     elif pages == "Health Analysis":
         st.subheader("Sleep Analysis")
-
         sleep_duration(connect)
 
 else:
