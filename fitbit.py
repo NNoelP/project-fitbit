@@ -14,8 +14,10 @@ daily_activity["ActivityDate"] = pd.to_datetime(daily_activity["ActivityDate"])
 
 def unique_users(df):
     unique_users = df["Id"].nunique()
-    print(f"Total unique users: {unique_users}")
+    st.write(f"Total unique users: {unique_users}")
 
+
+############## PART 1
 
 # TOTAL DISTANCE PER USER
 
@@ -35,13 +37,15 @@ def distance_per_user(df):
     plt.ylabel("Total Distance")
     plt.tight_layout()
     plt.show()
+    st.pyplot(plt.gcf())
+    plt.close()
 
 
 # CALORIES PER DAY FOR USERS
 
 
 def calories_per_day_user(df, id, start, end):
-    user = daily_activity[daily_activity["Id"] == str(id)].copy()
+    user = df[df["Id"] == str(id)].copy()
 
     user["ActivityDate"] = pd.to_datetime(user["ActivityDate"])
     # making sure that the data exists
@@ -59,6 +63,8 @@ def calories_per_day_user(df, id, start, end):
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
+    st.pyplot(plt.gcf())
+    plt.close()
 
 
 # WORKOUT FREQUENCY FOR EACH DAY OF THE WEEK
