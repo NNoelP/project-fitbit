@@ -151,3 +151,25 @@ def classify(connect):
     ax.set_title("User Base Classification")
     st.pyplot(plt.gcf())
     plt.close()
+
+
+############## PART 3
+
+# SLEEP DURATION OF USERS
+
+
+def sleep_duration(connect):
+    sleep_query = "SELECT Id, SUM(value) as total_sleep FROM minute_sleep GROUP BY Id"
+
+    df = pd.read_sql(sleep_query, connect)
+    df["Id"] = df["Id"].astype(str)
+
+    plt.figure(figsize=(12, 6))
+    sns.histplot(df["total_sleep"], kde=True)
+    plt.xlabel("Sleeping Duration")
+    plt.ylabel("Frequency")
+    plt.title("Distribution for Sleep Duration")
+    st.pyplot(plt.gcf())
+    plt.close()
+
+    return df
