@@ -98,6 +98,8 @@ if not data.empty:
     elif pages == "Health Analysis":
         st.subheader("Sleep Analysis")
         sleep_duration(connect)
+        bedtime_vs_duration(connect, id)
+        sleep_distribution(connect, id)
 
 else:
     print("There is no data, please try again.")

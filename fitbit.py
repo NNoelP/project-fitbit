@@ -175,6 +175,35 @@ def sleep_duration(connect):
     return df
 
 
+# SLEEP DISTRIBUTION
+
+
+def sleep_distribution(conn, id):
+    query = f"SELECT * FROM minute_sleep WHERE Id = '{id}'"
+    minute_sleep = pd.read_sql(query, conn)
+
+    if not minute_sleep.empty:
+        dates = pd.to_datetime(minute_sleep["date"])
+
+        T0 = 18
+        SHIFT = 24 - T0
+        time = (dates.dt.hour + SHIFT) % 24 + dates.dt.minute / 60
+
+        fig, ax1 = plt.subplots(figsize=(10, 5))
+        sns.histplot(time, binwidth=1, color="darkorange", ax=ax1)
+        ax2 = ax1.twinx()
+        sns.kdeplot(time, ax=ax2)
+
+        ax1.set_xticks(range(24))
+        ax1.set_xticklabels(
+            [f"{h:02d}:00" for h in np.roll(range(24), SHIFT)], rotation=45
+        )
+        ax1.set_xlabel("Time of Day")
+        plt.title(f"Sleep Distribution (User {id})")
+        st.pyplot(plt.gcf())
+        plt.close()
+
+
 # COMPARING SLEEP AND ACTIVE MINUTES
 
 
@@ -201,7 +230,42 @@ def sleep_active_minutes(conn):
         st.pyplot(plt.gcf())
 
 
-############## PART 4
+# BEDTIME VS DURATION
+
+
+def bedtime_vs_duration(conn, id):
+    query = f"SELECT *, COUNT(*) AS minutes FROM minute_sleep WHERE Id = '{id}' GROUP BY logId"
+
+    bedtimes = pd.read_sql(query, conn)
+    duration = bedtimes["minutes"] / 60
+
+    if bedtimes.empty:
+        st.write("No data.")
+        return
+
+    bedtimes["date"] = pd.to_datetime(bedtimes["date"])
+
+    T0 = 18
+    SHIFT = 24 - T0
+    shifted_time = (
+        (bedtimes["date"].dt.hour + SHIFT) % 24
+        + bedtimes["date"].dt.minute / 60
+        + bedtimes["date"].dt.second / 60**2
+    )
+
+    g = sns.jointplot(x=shifted_time, y=duration, s=5)
+    g.plot_joint(sns.kdeplot, alpha=0.7, label="Sleep Duration")
+    g.ax_joint.set(xlabel="Bedtime", ylabel="Duration")
+
+    ticks = range(24)
+    labels = [f"{h:02d}:00" for h in np.roll(range(24), SHIFT)]
+    g.ax_joint.set_xticks(ticks)
+    g.ax_joint.set_xticklabels(labels, rotation=45)
+
+    plt.suptitle("Bedtime vs. Duration", y=1.02)
+    st.pyplot(plt.gcf())
+    plt.close()
+
 
 # MISSING VALUES
 
