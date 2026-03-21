@@ -121,3 +121,33 @@ def plot_linear_regression(df, id):
     plt.close()
 
     linear_regression(df, id)
+
+
+# CLASSIFYING USERS
+
+
+def class_of_user(count):
+    if count <= 10:
+        return "Light user"
+    elif count <= 15:
+        return "Moderate user"
+    return "Heavy user"
+
+
+def classify(connect):
+    query = """SELECT Id, COUNT(*) as activity_count FROM daily_activity GROUP BY Id"""
+    df = pd.read_sql(query, connect)
+
+    df["Class"] = df["activity_count"].apply(class_of_user)
+    class_counts = df["Class"].value_counts()
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.pie(
+        class_counts,
+        labels=class_counts.index,
+        autopct="%1.1f%%",
+        colors=sns.color_palette("pastel"),
+    )
+    ax.set_title("User Base Classification")
+    st.pyplot(plt.gcf())
+    plt.close()
