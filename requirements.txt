@@ -1,8 +1,6 @@
 pandas
 matplotlib
 seaborn
-statsmodels.api
-statsmodels.tsa.seasonal
+statsmodels
 numpy
 sqlite3
-statsmodels.tsa.stattools
