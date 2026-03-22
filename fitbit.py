@@ -307,3 +307,25 @@ def hourly_activity_heatmap(conn, id):
         plt.title(f"Hourly Step Mapping for User {id}")
         st.pyplot(plt.gcf())
         plt.close()
+
+
+def active_vs_sed(df, id):
+    user_data = df[df["Id"] == str(id)]
+    if user_data.empty:
+        return
+
+    minutes = [
+        "VeryActiveMinutes",
+        "FairlyActiveMinutes",
+        "LightlyActiveMinutes",
+        "SedentaryMinutes",
+    ]
+    aver_min = user_data[minutes].mean()
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    colors = ["#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"]
+    ax.barh(aver_min.index, aver_min.values, color=colors)
+    ax.set_title("Average Daily Time Distribution")
+    ax.set_xlabel("Minutes")
+    st.pyplot(fig)
+    plt.close()
