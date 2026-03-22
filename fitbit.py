@@ -14,8 +14,10 @@ daily_activity["ActivityDate"] = pd.to_datetime(daily_activity["ActivityDate"])
 
 def unique_users(df):
     unique_users = df["Id"].nunique()
-    print(f"Total unique users: {unique_users}")
+    st.write(f"Total unique users: {unique_users}")
 
+
+############## PART 1
 
 # TOTAL DISTANCE PER USER
 
@@ -35,13 +37,15 @@ def distance_per_user(df):
     plt.ylabel("Total Distance")
     plt.tight_layout()
     plt.show()
+    st.pyplot(plt.gcf())
+    plt.close()
 
 
 # CALORIES PER DAY FOR USERS
 
 
 def calories_per_day_user(df, id, start, end):
-    user = daily_activity[daily_activity["Id"] == str(id)].copy()
+    user = df[df["Id"] == str(id)].copy()
 
     user["ActivityDate"] = pd.to_datetime(user["ActivityDate"])
     # making sure that the data exists
@@ -59,6 +63,8 @@ def calories_per_day_user(df, id, start, end):
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
+    st.pyplot(plt.gcf())
+    plt.close()
 
 
 # WORKOUT FREQUENCY FOR EACH DAY OF THE WEEK
@@ -86,6 +92,8 @@ def workout_frequency(df):
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.show()
+    st.pyplot(plt.gcf())
+    plt.close()
 
 
 # LINEAR REGRESSION MODEL
@@ -94,14 +102,11 @@ def workout_frequency(df):
 def linear_regression(df, id):
     user_data = df[df["Id"] == str(id)]
     model = smf.ols("Calories ~ TotalSteps", data=user_data).fit()
-    print(model.summary())
-
-    beta = model.params["TotalSteps"]
-    print(f"\nUser{id}Calories burned: {beta:.2f}")
+    # st.write(model.summary())
 
 
 def plot_linear_regression(df, id):
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(1, 6))
     sns.regplot(
         data=daily_activity[daily_activity["Id"] == str(id)],
         x="TotalSteps",
@@ -112,6 +117,8 @@ def plot_linear_regression(df, id):
     plt.xlabel("Total Steps")
     plt.ylabel("Calories")
     plt.show()
+    st.pyplot(plt.gcf())
+    plt.close()
 
     linear_regression(df, id)
 
@@ -129,7 +136,7 @@ def class_of_user(count):
 
 def classify(connect):
     query = """SELECT Id, COUNT(*) as activity_count FROM daily_activity GROUP BY Id"""
-    df = pd.read_sql(query, conn)
+    df = pd.read_sql(query, connect)
 
     df["Class"] = df["activity_count"].apply(class_of_user)
     class_counts = df["Class"].value_counts()
@@ -141,9 +148,12 @@ def classify(connect):
         autopct="%1.1f%%",
         colors=sns.color_palette("pastel"),
     )
-    ax.set_title("User Base Segmentation")
-    st.pyplot(fig)
+    ax.set_title("User Base Classification")
+    st.pyplot(plt.gcf())
+    plt.close()
 
+
+############## PART 3
 
 # SLEEP DURATION OF USERS
 
@@ -159,24 +169,117 @@ def sleep_duration(connect):
     plt.xlabel("Sleeping Duration")
     plt.ylabel("Frequency")
     plt.title("Distribution for Sleep Duration")
+    st.pyplot(plt.gcf())
+    plt.close()
 
     return df
 
 
-if __name__ == "__main__":
-    unique_users(daily_activity)
-    distance_per_user(daily_activity)
-    workout_frequency(daily_activity)
+# SLEEP DISTRIBUTION
 
-    global_model = smf.ols("Calories ~ TotalSteps + C(Id)", data=daily_activity).fit()
-    print(global_model.summary())
 
-    e_id = "1503960366"
+def sleep_distribution(conn, id):
+    query = f"SELECT * FROM minute_sleep WHERE Id = '{id}'"
+    minute_sleep = pd.read_sql(query, conn)
 
-    print(f"\nUser: {e_id}")
+    if not minute_sleep.empty:
+        dates = pd.to_datetime(minute_sleep["date"])
 
-    daily_activity["Id"] = daily_activity["Id"].astype(float).astype(int).astype(str)
+        T0 = 18
+        SHIFT = 24 - T0
+        time = (dates.dt.hour + SHIFT) % 24 + dates.dt.minute / 60
 
-    calories_per_day_user(daily_activity, e_id, start="2016-03-25", end="2016-04-05")
+        fig, ax1 = plt.subplots(figsize=(10, 5))
+        sns.histplot(time, binwidth=1, color="darkorange", ax=ax1)
+        ax2 = ax1.twinx()
+        sns.kdeplot(time, ax=ax2)
 
-    plot_linear_regression(daily_activity, e_id)
+        ax1.set_xticks(range(24))
+        ax1.set_xticklabels(
+            [f"{h:02d}:00" for h in np.roll(range(24), SHIFT)], rotation=45
+        )
+        ax1.set_xlabel("Time of Day")
+        plt.title(f"Sleep Distribution (User {id})")
+        st.pyplot(plt.gcf())
+        plt.close()
+
+
+# COMPARING SLEEP AND ACTIVE MINUTES
+
+
+def sleep_active_minutes(conn):
+    merged_query = """
+        SELECT a.Id, SUM(s.value) as sleep, 
+        SUM(a.VeryActiveMinutes + a.FairlyActiveMinutes + a.LightlyActiveMinutes) as activity
+    FROM minute_sleep s
+    JOIN daily_activity a ON s.Id = a.Id
+    GROUP BY s.Id
+    """
+
+    df = pd.read_sql(merged_query, conn).dropna()
+
+    if not df.empty:
+        # we can also print the models but it is taking too much space and also not very visual for the dashboard therfore i removed it
+        # model = smf.ols("activity ~ sleep", data=df).fit()
+        # st.text(model.summary())
+
+        sns.regplot(x=df["sleep"], y=df["activity"])
+        plt.ylabel("Total Active Time")
+        plt.xlabel("Total Sleeping Time")
+        plt.title("Comparing Sleep Duration and Active Minutes")
+        st.pyplot(plt.gcf())
+
+
+# BEDTIME VS DURATION
+
+
+def bedtime_vs_duration(conn, id):
+    query = f"SELECT *, COUNT(*) AS minutes FROM minute_sleep WHERE Id = '{id}' GROUP BY logId"
+
+    bedtimes = pd.read_sql(query, conn)
+    duration = bedtimes["minutes"] / 60
+
+    if bedtimes.empty:
+        st.write("No data.")
+        return
+
+    bedtimes["date"] = pd.to_datetime(bedtimes["date"])
+
+    T0 = 18
+    SHIFT = 24 - T0
+    shifted_time = (
+        (bedtimes["date"].dt.hour + SHIFT) % 24
+        + bedtimes["date"].dt.minute / 60
+        + bedtimes["date"].dt.second / 60**2
+    )
+
+    g = sns.jointplot(x=shifted_time, y=duration, s=5)
+    g.plot_joint(sns.kdeplot, alpha=0.7, label="Sleep Duration")
+    g.ax_joint.set(xlabel="Bedtime", ylabel="Duration")
+
+    ticks = range(24)
+    labels = [f"{h:02d}:00" for h in np.roll(range(24), SHIFT)]
+    g.ax_joint.set_xticks(ticks)
+    g.ax_joint.set_xticklabels(labels, rotation=45)
+
+    plt.suptitle("Bedtime vs. Duration", y=1.02)
+    st.pyplot(plt.gcf())
+    plt.close()
+
+
+# MISSING VALUES
+
+
+def fill_weight(df):
+    # assigning empty strings with nan so that it is easier to detect
+    df.replace(["", " "], pd.NA, inplace=True)
+
+    # this is used if theres any value that was logged before
+    df["WeightKg"] = df.groupby("Id")["WeightKg"].transform(
+        lambda x: x.fillna(x.mean())
+    )
+
+    # and take the median
+    df["WeightKg"] = df["WeightKg"].fillna(df["WeightKg"].median())
+
+    return df

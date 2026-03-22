@@ -78,16 +78,20 @@ def load_data(selected_ids, date_range):
 
     # Heart rate
     id_list = "', '".join(selected_ids)
+    # Format dates for SQL query
+    start_str = start_date.strftime("%m/%d/%Y 12:00:00 AM")
+    end_str = end_date.strftime("%m/%d/%Y 12:00:00 AM")
     hr_df = pd.read_sql(f"""
-                        SELECT Id, Time, value
+                        SELECT Id, Time, Value
                         FROM heart_rate
                         WHERE Id IN ('{id_list}')
+                          AND Time >= '{start_str}'
+                          AND Time < '{end_str}'
                         """, conn)
     if not hr_df.empty:
         hr_df['Id'] = hr_df['Id'].astype(int).astype(str)
         hr_df['Time'] = pd.to_datetime(hr_df['Time'], format=DATE_FMT)
-        hr_df = hr_df[(hr_df['Time'] >= start_date) & (hr_df['Time'] < end_date)]
-    hr_stats = hr_df.groupby('Time')['value'].describe() if not hr_df.empty else pd.DataFrame()
+    hr_stats = hr_df.groupby('Time')['Value'].describe() if (not hr_df.empty and 'Value' in hr_df.columns) else pd.DataFrame()
     
     # Sleep
     minute_sleep = pd.read_sql("SELECT * from minute_sleep", conn)
@@ -113,9 +117,95 @@ def load_data(selected_ids, date_range):
 cis_means, hr_stats, sleep_stats, aligned_data = load_data(selected_ids, date_range)
 
 # Tabs for pages
-tab1, tab2, tab3, tab4 = st.tabs(["Activity", "Heart Rate", "Sleep", "Relations"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Statistics", "Activity", "Heart Rate", "Sleep", "Relations"])
 
 with tab1:
+    st.header("Data Statistics")
+    
+    # Load raw data for statistics
+    @st.cache_data
+    def get_data_stats(selected_ids):
+        stats = {}
+        
+        # Activity data
+        cis_df = pd.read_sql("""
+                         SELECT *
+                         FROM hourly_calories
+                         NATURAL JOIN hourly_intensity
+                         NATURAL JOIN hourly_steps
+                         """, conn)
+        cis_df['Id'] = cis_df['Id'].astype(int).astype(str)
+        cis_df = cis_df[cis_df['Id'].isin(selected_ids)]
+        stats['Activity Records'] = len(cis_df)
+        stats['Avg Calories'] = cis_df['Calories'].mean() if not cis_df.empty else 0
+        stats['Avg Intensity'] = cis_df['TotalIntensity'].mean() if not cis_df.empty else 0
+        stats['Avg Steps'] = cis_df['StepTotal'].mean() if not cis_df.empty else 0
+        
+        # Heart rate data
+        id_list = "', '".join(selected_ids)
+        hr_df = pd.read_sql(f"""
+                            SELECT *
+                            FROM heart_rate
+                            WHERE Id IN ('{id_list}')
+                            """, conn)
+        hr_df['Id'] = hr_df['Id'].astype(int).astype(str) if not hr_df.empty else pd.Series()
+        stats['Heart Rate Records'] = len(hr_df)
+        stats['Avg Heart Rate'] = hr_df['Value'].mean() if not hr_df.empty else 0
+        stats['Min Heart Rate'] = hr_df['Value'].min() if not hr_df.empty else 0
+        stats['Max Heart Rate'] = hr_df['Value'].max() if not hr_df.empty else 0
+        
+        # Sleep data
+        sleep_df = pd.read_sql("SELECT * from minute_sleep", conn)
+        sleep_df['Id'] = sleep_df['Id'].astype(int).astype(str)
+        sleep_df = sleep_df[sleep_df['Id'].isin(selected_ids)]
+        stats['Sleep Records'] = len(sleep_df)
+        stats['Avg Sleep Duration'] = (len(sleep_df) / len(sleep_df['date'].unique())) if not sleep_df.empty and len(sleep_df['date'].unique()) > 0 else 0
+        
+        return stats, cis_df, hr_df, sleep_df
+    
+    stats, cis_df, hr_df, sleep_df = get_data_stats(selected_ids)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Data Availability Heatmap")
+        # Create availability matrix by user and metric type
+        if not cis_df.empty or not hr_df.empty or not sleep_df.empty:
+            availability_data = []
+            for user_id in selected_ids:
+                row = {
+                    'User ID': user_id,
+                    'Activity': len(cis_df[cis_df['Id'] == user_id]) if not cis_df.empty else 0,
+                    'Heart Rate': len(hr_df[hr_df['Id'] == user_id]) if not hr_df.empty else 0,
+                    'Sleep': len(sleep_df[sleep_df['Id'] == user_id]) if not sleep_df.empty else 0
+                }
+                availability_data.append(row)
+            
+            avail_df = pd.DataFrame(availability_data).set_index('User ID')
+            fig, ax = plt.subplots(figsize=(8, 6))
+            sns.heatmap(avail_df, annot=True, fmt='d', cmap='YlOrRd', ax=ax, cbar_kws={'label': 'Record Count'})
+            ax.set_title('Data Availability by User and Metric')
+            st.pyplot(fig)
+        else:
+            st.warning("No data available for selected users.")
+    
+    with col2:
+        st.subheader("Summary Statistics")
+        summary_stats = pd.DataFrame([
+            {'Metric': 'Total Users', 'Value': len(selected_ids)},
+            {'Metric': 'Activity Records', 'Value': int(stats['Activity Records'])},
+            {'Metric': 'Heart Rate Records', 'Value': int(stats['Heart Rate Records'])},
+            {'Metric': 'Sleep Records', 'Value': int(stats['Sleep Records'])},
+            {'Metric': 'Avg Daily Calories', 'Value': f"{stats['Avg Calories']:.1f}"},
+            {'Metric': 'Avg Daily Intensity', 'Value': f"{stats['Avg Intensity']:.1f}"},
+            {'Metric': 'Avg Daily Steps', 'Value': f"{stats['Avg Steps']:.0f}"},
+            {'Metric': 'Avg Heart Rate (bpm)', 'Value': f"{stats['Avg Heart Rate']:.1f}"},
+            {'Metric': 'Heart Rate Range', 'Value': f"{int(stats['Min Heart Rate'])}-{int(stats['Max Heart Rate'])} bpm"},
+            {'Metric': 'Avg Sleep (min/day)', 'Value': f"{stats['Avg Sleep Duration']:.0f}"},
+        ])
+        st.dataframe(summary_stats, use_container_width=True, hide_index=True)
+
+with tab2:
     st.header("Activity Analysis")
     if cis_means.empty:
         st.warning("No activity data available for selected date range and users.")
@@ -132,7 +222,7 @@ with tab1:
             cis_means.plot(subplots=True, sharex=True, ax=ax)
             st.pyplot(fig)
 
-with tab2:
+with tab3:
     st.header("Heart Rate Analysis")
     if hr_stats.empty:
         st.warning("No heart rate data available for selected date range and users.")
@@ -142,17 +232,46 @@ with tab2:
         hr_stats.loc[:,::-1].plot(subplots=True, sharex=True, ax=ax)
         st.pyplot(fig)
 
-with tab3:
+with tab4:
     st.header("Sleep Analysis")
     if sleep_stats.empty:
         st.warning("No sleep data available for selected date range and users.")
     else:
+        st.subheader("Bedtime vs. Duration")
+
+        # Load raw minute_sleep data for jointplot
+        minute_sleep_raw = pd.read_sql("SELECT * from minute_sleep", conn)
+        minute_sleep_raw['Id'] = minute_sleep_raw['Id'].astype(int).astype(str)
+        minute_sleep_raw = minute_sleep_raw[minute_sleep_raw['Id'].isin(selected_ids)]
+        minute_sleep_raw['date'] = pd.to_datetime(minute_sleep_raw['date'], format=DATE_FMT)
+        start_date = pd.Timestamp(date_range[0])
+        end_date = pd.Timestamp(date_range[1]) + pd.Timedelta(days=1)
+        minute_sleep_raw = minute_sleep_raw[(minute_sleep_raw['date'] >= start_date) & (minute_sleep_raw['date'] < end_date)]
+        
+        if not minute_sleep_raw.empty:
+            # Get bedtime and duration per sleep session (logId)
+            sleep_sessions = minute_sleep_raw.groupby('logId').agg({
+                'date': 'min',
+                'logId': 'count'
+            }).reset_index(drop=True)
+            sleep_sessions.columns = ['Bedtime', 'Duration_minutes']
+            sleep_sessions['Bedtime'] = pd.to_datetime(sleep_sessions['Bedtime'])
+            # Convert duration from minutes to hours
+            sleep_sessions['Duration'] = sleep_sessions['Duration_minutes'] / 60
+            # Extract hour for x-axis
+            sleep_sessions['Bedtime_Hour'] = sleep_sessions['Bedtime'].dt.hour + sleep_sessions['Bedtime'].dt.minute / 60
+            
+            # Create KDE jointplot
+            fig = sns.jointplot(data=sleep_sessions, x='Bedtime_Hour', y='Duration', kind='kde', height=6, fill=True)
+            fig.set_axis_labels('Bedtime (Hour of Day)', 'Duration (hours)')
+            st.pyplot(fig)
+        
         st.subheader("Stats Plot")
         fig, ax = plt.subplots()
         sleep_stats.loc[:,::-1].plot(subplots=True, sharex=True, ax=ax)
         st.pyplot(fig)
 
-with tab4:
+with tab5:
     st.header("Relations Analysis")
     if aligned_data.empty:
         st.warning("No aligned data available for selected date range and users.")
@@ -188,5 +307,3 @@ with tab4:
         X = sm.add_constant(X)
         model = sm.OLS(y, X).fit()
         st.text(model.summary())
-
-st.info("Dashboard updated with tabs and filters. Run with `streamlit run streamlit_app.py`")
