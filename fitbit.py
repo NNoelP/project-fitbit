@@ -283,3 +283,49 @@ def fill_weight(df):
     df["WeightKg"] = df["WeightKg"].fillna(df["WeightKg"].median())
 
     return df
+
+
+# HEATMAP
+
+
+def hourly_activity_heatmap(conn, id):
+    query = f"SELECT ActivityHour, StepTotal FROM hourly_steps WHERE Id = '{id}'"
+    df = pd.read_sql(query, conn)
+
+    if not df.empty:
+        df["ActivityHour"] = pd.to_datetime(df["ActivityHour"])
+        df["Hour"] = df["ActivityHour"].dt.hour
+        df["Date"] = df["ActivityHour"].dt.date
+
+        # credits: https://seaborn.pydata.org/generated/seaborn.heatmap.html
+        plt.figure(figsize=(12, 6))
+        sns.heatmap(
+            df.pivot(index="Date", columns="Hour", values="StepTotal"),
+            cmap=sns.cubehelix_palette(as_cmap=True),
+            cbar_kws={"label": "Steps"},
+        )
+        plt.title(f"Hourly Step Mapping for User {id}")
+        st.pyplot(plt.gcf())
+        plt.close()
+
+
+def active_vs_sed(df, id):
+    user_data = df[df["Id"] == str(id)]
+    if user_data.empty:
+        return
+
+    minutes = [
+        "VeryActiveMinutes",
+        "FairlyActiveMinutes",
+        "LightlyActiveMinutes",
+        "SedentaryMinutes",
+    ]
+    aver_min = user_data[minutes].mean()
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    colors = ["#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"]
+    ax.barh(aver_min.index, aver_min.values, color=colors)
+    ax.set_title("Average Daily Time Distribution")
+    ax.set_xlabel("Minutes")
+    st.pyplot(fig)
+    plt.close()
