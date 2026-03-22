@@ -3,4 +3,4 @@ matplotlib
 seaborn
 statsmodels
 numpy
-sqlite3
+sqlite
