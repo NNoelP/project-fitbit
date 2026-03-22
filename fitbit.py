@@ -283,3 +283,27 @@ def fill_weight(df):
     df["WeightKg"] = df["WeightKg"].fillna(df["WeightKg"].median())
 
     return df
+
+
+# HEATMAP
+
+
+def hourly_activity_heatmap(conn, id):
+    query = f"SELECT ActivityHour, StepTotal FROM hourly_steps WHERE Id = '{id}'"
+    df = pd.read_sql(query, conn)
+
+    if not df.empty:
+        df["ActivityHour"] = pd.to_datetime(df["ActivityHour"])
+        df["Hour"] = df["ActivityHour"].dt.hour
+        df["Date"] = df["ActivityHour"].dt.date
+
+        # credits: https://seaborn.pydata.org/generated/seaborn.heatmap.html
+        plt.figure(figsize=(12, 6))
+        sns.heatmap(
+            df.pivot(index="Date", columns="Hour", values="StepTotal"),
+            cmap=sns.cubehelix_palette(as_cmap=True),
+            cbar_kws={"label": "Steps"},
+        )
+        plt.title(f"Hourly Step Mapping for User {id}")
+        st.pyplot(plt.gcf())
+        plt.close()
