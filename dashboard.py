@@ -67,6 +67,11 @@ if not data.empty:
     start_date = st.sidebar.date_input("Start Date")
     end_date = st.sidebar.date_input("End Date")
 
+    data = data[
+        (data["ActivityDate"].dt.date >= start_date)
+        & (data["ActivityDate"].dt.date <= end_date)
+    ]
+
     if pages == "General User Statistics":
         st.subheader("Total Distance per User")
         distance_per_user(data)
@@ -75,22 +80,47 @@ if not data.empty:
         classify(connect)
 
     elif pages == "User Analysis":
+        user_data = data[data["Id"] == id]
+        avg_steps = int(user_data["TotalSteps"].mean())
+        avg_calories = int(user_data["Calories"].mean())
+
+        max_steps = user_data["TotalSteps"].max()
+        max_distance = user_data["TotalDistance"].max()
+        max_distance = round(max_distance)
+        best_day = user_data.loc[
+            user_data["TotalSteps"].idxmax(), "ActivityDate"
+        ].strftime("%Y-%m-%d")
+
+        st.subheader("Personal Analysis")
+        col1, col2, col3 = st.columns(3)
+        col4, col5, col6 = st.columns(3)
+        col1.metric("Maximum Steps:", f"{max_steps:,}")
+        col2.metric("Maximum Distance:", f"{max_distance} km")
+        col3.metric("Most Active Day", best_day)
+        col4.metric("Average Daily Steps", f"{avg_steps:,}")
+        col5.metric("Average Daily Calories", f"{avg_calories:,} kcal")
+
         st.subheader(f"User {id}")
 
         st.write("User Overview")
         # user info
         st.dataframe(data[data["Id"] == id].head(10), use_container_width=True)
 
+        active_vs_sed(data, id)
+
     elif pages == "Activity Analysis":
-        st.write("CALORIES BURNT")
+        st.subheader("CALORIES BURNT")
         calories_per_day_user(data, id, start_date, end_date)
 
-        st.write("STEPS AND ACTICITY COMPARISON")
+        st.subheader("STEPS AND ACTICITY COMPARISON")
         plot_linear_regression(data, id)
 
         st.subheader("Workout Patterns")
 
         workout_frequency(data)
+
+        st.subheader("HEATMAP BASED ON USER ACTIVITY")
+        hourly_activity_heatmap(connect, id)
 
         st.subheader("SLEEP AND ACTIVITY COMPARISON")
         sleep_active_minutes(connect)
@@ -98,7 +128,11 @@ if not data.empty:
     elif pages == "Health Analysis":
         st.subheader("Sleep Analysis")
         sleep_duration(connect)
+
+        st.subheader("BEDTIME AND SLEEP DURATION")
         bedtime_vs_duration(connect, id)
+
+        st.subheader("SLEEP DISTRIBUTIO ")
         sleep_distribution(connect, id)
 
 else:
