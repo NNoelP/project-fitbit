@@ -1,0 +1,8 @@
+pandas
+matplotlib
+seaborn
+statsmodels.api
+statsmodels.tsa.seasonal
+numpy
+sqlite3
+statsmodels.tsa.stattools
